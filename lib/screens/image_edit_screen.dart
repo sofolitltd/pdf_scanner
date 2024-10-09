@@ -6,20 +6,28 @@ import 'package:image_cropper/image_cropper.dart';
 
 import '../models/post_model.dart';
 
-// Add your database import here (e.g., sqflite, hive, etc.)
-// import 'package:your_database_package/your_database_package.dart';
-
 class ImageEditPage extends StatefulWidget {
   final List<String> imagePaths;
-  const ImageEditPage({super.key, required this.imagePaths});
+  final int initialIndex;
+
+  const ImageEditPage({
+    super.key,
+    required this.imagePaths,
+    required this.initialIndex,
+  });
 
   @override
   State<ImageEditPage> createState() => _ImageEditPageState();
 }
 
 class _ImageEditPageState extends State<ImageEditPage> {
-  int _currentPageIndex = 0;
-  CroppedFile? _croppedFile;
+  late int _currentPageIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPageIndex = widget.initialIndex;
+  }
 
   Future<void> _cropImage(String imagePath) async {
     final croppedFile = await ImageCropper().cropImage(
@@ -89,11 +97,30 @@ class _ImageEditPageState extends State<ImageEditPage> {
       appBar: AppBar(
         title: const Text('Edit Images'),
       ),
-      body: Column(
+      bottomNavigationBar: Container(
+        color: Colors.black12,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            IconButton(
+              onPressed: () => _cropImage(widget.imagePaths[_currentPageIndex]),
+              icon: const Icon(Icons.crop),
+            ),
+            // Add more buttons for filtering, zooming, etc.
+          ],
+        ),
+      ),
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
+          //
+          Container(
+            color: Colors.white,
             child: PageView.builder(
               itemCount: widget.imagePaths.length,
+              controller: PageController(
+                  initialPage: _currentPageIndex), // Set initial page
               onPageChanged: (index) {
                 setState(() {
                   _currentPageIndex = index;
@@ -101,28 +128,26 @@ class _ImageEditPageState extends State<ImageEditPage> {
               },
               itemBuilder: (context, index) {
                 final imagePath = widget.imagePaths[index];
-                return Center(
-                  child:
-                      Image.file(File(imagePath)), // Directly display the image
+                return Image.file(
+                  File(imagePath),
+                  fit: BoxFit.fitWidth,
                 );
               },
             ),
           ),
 
           //
-          Container(
-            color: Colors.black12,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                IconButton(
-                  onPressed: () =>
-                      _cropImage(widget.imagePaths[_currentPageIndex]),
-                  icon: const Icon(Icons.crop),
-                ),
-                // Add more buttons for filtering, zooming, etc.
-              ],
+          Positioned(
+            top: 24,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                  '${_currentPageIndex + 1}/${widget.imagePaths.length}'), // Show current/total
             ),
           ),
         ],

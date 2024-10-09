@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '/models/post_model.dart';
-import 'Details_screen.dart';
+import 'details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,12 +57,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _deletePost(String postId) async {
-    final box = await Hive.openBox<Post>('postsBox');
-    await box.delete(postId); // Delete using the ID
-    setState(() {
-      _posts.removeWhere(
-          (post) => post.id == postId); // Update the in-memory list
-    });
+    try {
+      final box = await Hive.openBox<Post>('postsBox');
+      final post = box.get(postId);
+
+      // Check if the post and images exist
+      if (post != null && post.images.isNotEmpty) {
+        for (var imagePath in post.images) {
+          final file = File(imagePath);
+
+          // Check if the file exists before attempting to delete
+          if (await file.exists()) {
+            try {
+              await file.delete();
+              print('File deleted: $imagePath');
+            } catch (e) {
+              print('Failed to delete file $imagePath: $e');
+              // Optionally show an error message to the user
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to delete file: $e')),
+              );
+            }
+          } else {
+            print('File does not exist: $imagePath');
+          }
+        }
+      }
+
+      // Attempt to delete the post using its ID
+      await box.delete(postId);
+
+      // Update the in-memory list and rebuild the UI
+      setState(() {
+        _posts.removeWhere((post) => post.id == postId);
+      });
+    } catch (e) {
+      // Catch any error and print it or display it in the UI
+      print('Error deleting post: $e');
+
+      // Optionally show a dialog or a Snackbar with the error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete post: $e')),
+      );
+    }
   }
 
   void _showDeleteConfirmationDialog(BuildContext context, String postId) {
@@ -103,6 +140,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ); // A unique ID will be automatically generated
       await savePost(newPost);
       _loadPosts();
+
+      // Navigate to the DetailsScreen after saving the post
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DetailsScreen(
+            post: newPost,
+            index: _posts.length, // Use the last index for the new post
+          ),
+        ),
+      );
     }
   }
 
@@ -128,9 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
               valueListenable: Hive.box<Post>('postsBox').listenable(),
               builder: (context, box, _) {
                 _posts = box.values.toList();
-                return ListView.builder(
+                return ListView.separated(
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemCount: _posts.length,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   itemBuilder: (context, index) {
                     final post = _posts[index];
 
@@ -147,7 +196,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                       child: Container(
-                        margin: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.blueGrey.shade100),
                           borderRadius: BorderRadius.circular(8),
@@ -237,7 +285,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text('No Files found'),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickImagesAndSave,
+        onPressed: () {
+          //
+          _pickImagesAndSave();
+        },
         label: const Text('Import from Gallery'),
       ),
     );
